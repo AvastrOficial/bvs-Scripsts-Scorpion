@@ -1,0 +1,69 @@
+' === archivo: bloquear.vbs ===
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+Set objShell = CreateObject("WScript.Shell")
+
+' Crear carpeta Temp si no existe
+If Not objFSO.FolderExists("C:\Temp") Then
+    objFSO.CreateFolder("C:\Temp")
+End If
+
+' Eliminar archivo de desbloqueo si ya existe
+If objFSO.FileExists("C:\Temp\unlock.key") Then
+    objFSO.DeleteFile "C:\Temp\unlock.key"
+End If
+
+' Crear archivo HTML
+htmlPath = "C:\Temp\pantalla_bloqueo.html"
+Set objFile = objFSO.CreateTextFile(htmlPath, True)
+objFile.Write CreateHTML()
+objFile.Close
+
+' Cerrar explorer.exe
+Set objWMIService = GetObject("winmgmts:\\.\root\cimv2")
+Set colItems = objWMIService.ExecQuery("Select * from Win32_Process")
+For Each objItem in colItems
+    If LCase(objItem.Name) = "explorer.exe" Then
+        objItem.Terminate
+    End If
+Next
+
+' Ejecutar el HTML con Internet Explorer en pantalla completa
+iePath = """C:\Program Files\Internet Explorer\iexplore.exe"""
+If Not objFSO.FileExists("C:\Program Files\Internet Explorer\iexplore.exe") Then
+    MsgBox "Internet Explorer no encontrado. Requiere IE para funcionar.", 16, "Error"
+    WScript.Quit
+End If
+
+objShell.Run iePath & " -k " & htmlPath, 1, False
+
+' Ejecutar script que espera desbloqueo
+WScript.Sleep 2000 ' Esperar que IE cargue
+objShell.Run "wscript.exe C:\Temp\esperar_desbloqueo.vbs", 0, False
+
+Function CreateHTML()
+    CreateHTML = "<!DOCTYPE html>" & vbCrLf & _
+    "<html><head><meta charset='UTF-8'><title>Bloqueado</title>" & _
+    "<style>" & _
+    "html, body {margin:0; padding:0; background:#000; color:#f00; font-family:Consolas; overflow:hidden;}" & _
+    ".centered {position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;}" & _
+    "input, button {font-size:20px; margin-top:10px; background:#111; color:#f00; border:1px solid #f00; padding:10px;}" & _
+    "</style></head><body>" & _
+    "<div class='centered'>" & _
+    "<h1>ACCESO RESTRINGIDO</h1>" & _
+    "<p>Introduce la contraseña:</p>" & _
+    "<input type='password' id='clave' maxlength='8' autofocus /><br/>" & _
+    "<button onclick='verificar()'>Acceder</button>" & _
+    "</div>" & _
+    "<script>" & _
+    "function verificar(){" & _
+    "var c=document.getElementById('clave').value;" & _
+    "if(c==='1234'){" & _
+    "try { var fso = new ActiveXObject('Scripting.FileSystemObject');" & _
+    "var file = fso.CreateTextFile('C:\\\\Temp\\\\unlock.key', true);" & _
+    "file.WriteLine('ok'); file.Close(); } catch(e) { alert('Error al desbloquear'); }" & _
+    "} else { alert('Contraseña incorrecta'); }" & _
+    "}" & _
+    "document.addEventListener('keydown',function(e){e.preventDefault();return false;});" & _
+    "document.addEventListener('contextmenu',function(e){e.preventDefault();});" & _
+    "</script></body></html>"
+End Function
